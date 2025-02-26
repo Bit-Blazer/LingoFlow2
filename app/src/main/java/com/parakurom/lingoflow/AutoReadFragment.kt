@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.camera.core.*
@@ -28,14 +29,17 @@ class AutoReadFragment : Fragment() {
 
     private lateinit var viewFinder: PreviewView
     private lateinit var recognizedTextView: TextView
-    private lateinit var textOverlay: TextView
     private lateinit var scrollContainer: NestedScrollView
     private lateinit var captureButton: Button
+    private lateinit var stopTtsButton: Button
     private lateinit var textSection: LinearLayout
+    private lateinit var seekBarPitch: SeekBar
+    private lateinit var seekBarSpeed: SeekBar
     private var imageCapture: ImageCapture? = null
     private lateinit var cameraExecutor: ExecutorService
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private var textToSpeech: TextToSpeech? = null
+    private var lastRecognizedText: String = ""
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -45,9 +49,11 @@ class AutoReadFragment : Fragment() {
         viewFinder = view.findViewById(R.id.view_finder)
         scrollContainer = view.findViewById(R.id.scroll_container)
         recognizedTextView = view.findViewById(R.id.recognized_text)
-        textOverlay = view.findViewById(R.id.text_overlay)
         captureButton = view.findViewById(R.id.capture_button)
+        stopTtsButton = view.findViewById(R.id.stop_tts_button)
         textSection = view.findViewById(R.id.text_section)
+        seekBarPitch = view.findViewById(R.id.seekBarPitch)
+        seekBarSpeed = view.findViewById(R.id.seekBarSpeed)
 
         return view
     }
@@ -71,6 +77,25 @@ class AutoReadFragment : Fragment() {
             captureImage()
         }
 
+        stopTtsButton.setOnClickListener {
+            stopTextToSpeech()
+        }
+
+        seekBarPitch.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                setPitch(progress / 50f)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                setSpeechRate(progress / 50f)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
     }
 
     private fun startCamera() {
@@ -132,15 +157,14 @@ class AutoReadFragment : Fragment() {
 
     private fun displayText(visionText: Text) {
         activity?.runOnUiThread {
-            val recognizedText = visionText.text
+            lastRecognizedText = visionText.text
 
-            if (recognizedText.isNotEmpty()) {
-                recognizedTextView.text = recognizedText
-                textOverlay.visibility = View.VISIBLE
+            if (lastRecognizedText.isNotEmpty()) {
+                recognizedTextView.text = lastRecognizedText
                 recognizedTextView.visibility = View.VISIBLE
                 textSection.visibility = View.VISIBLE
 
-                textToSpeech?.speak(recognizedText, TextToSpeech.QUEUE_FLUSH, null, null)
+                speakText(lastRecognizedText)
 
                 scrollContainer.postDelayed({
                     scrollContainer.fullScroll(View.FOCUS_DOWN)
@@ -151,6 +175,21 @@ class AutoReadFragment : Fragment() {
         }
     }
 
+    private fun speakText(text: String) {
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    private fun stopTextToSpeech() {
+        textToSpeech?.stop()
+    }
+
+    private fun setPitch(pitch: Float) {
+        textToSpeech?.setPitch(pitch)
+    }
+
+    private fun setSpeechRate(rate: Float) {
+        textToSpeech?.setSpeechRate(rate)
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()

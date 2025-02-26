@@ -50,16 +50,7 @@
                 android:background="@android:color/black"
                 android:padding="10dp">
 
-                <TextView
-                    android:id="@+id/text_overlay"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Text Recognized. Scroll Up to Capture Again ↑"
-                    android:textSize="16sp"
-                    android:textColor="@android:color/white"
-                    android:padding="10dp"
-                    android:gravity="center"
-                    android:visibility="gone"/>
+
 
                 <TextView
                     android:id="@+id/recognized_text"
@@ -69,6 +60,25 @@
                     android:textColor="@android:color/white"
                     android:padding="16dp"
                     android:visibility="gone"/>
+                <Button
+                    android:id="@+id/stop_tts_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Stop Speech"
+                    android:layout_gravity="center"
+                    />
+
+                <SeekBar
+                    android:id="@+id/seekBarPitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    />
+
+                <SeekBar
+                    android:id="@+id/seekBarSpeed"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    />
             </LinearLayout>
         </LinearLayout>
 
