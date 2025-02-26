@@ -1,0 +1,821 @@
+================================================================
+Directory Structure
+================================================================
+AndroidManifest.xml
+res/layout/activity_main.xml
+res/layout/fragment_camera.xml
+res/layout/item_gesture_recognizer_result.xml
+res/navigation/nav_graph.xml
+java/com/google/mediapipe/examples/gesturerecognizer/MainActivity.kt
+java/com/google/mediapipe/examples/gesturerecognizer/CameraFragment.kt
+java/com/google/mediapipe/examples/gesturerecognizer/GestureRecognizerHelper.kt
+java/com/google/mediapipe/examples/gesturerecognizer/GestureRecognizerResultsAdapter.kt
+java/com/google/mediapipe/examples/gesturerecognizer/OverlayView.kt
+java/com/google/mediapipe/examples/gesturerecognizer/PermissionsFragment.kt
+
+================================================================
+Files
+================================================================
+
+================
+File: AndroidManifest.xml
+================
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:dist="http://schemas.android.com/apk/distribution"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Enable instant app support -->
+    <dist:module dist:instant="true" />
+
+    <!-- Declare features -->
+    <uses-feature android:name="android.hardware.camera" />
+
+    <!-- Declare permissions -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="MP Gesture Recognizer"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:taskAffinity=""
+        android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"
+        tools:ignore="AllowBackup">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Declare notch support -->
+            <meta-data
+                android:name="android.notch_support"
+                android:value="true" />
+        </activity>
+    </application>
+
+</manifest>
+
+================
+File: res/layout/activity_main.xml
+================
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/fragment_container"
+            android:name="androidx.navigation.fragment.NavHostFragment"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:keepScreenOn="true"
+            app:defaultNavHost="true"
+            app:navGraph="@navigation/nav_graph"
+            tools:context=".MainActivity" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+================
+File: res/layout/fragment_camera.xml
+================
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/camera_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/view_finder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:scaleType="fillStart" />
+
+    <com.google.mediapipe.examples.gesturerecognizer.OverlayView
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerview_results"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginBottom="50dp"
+        android:background="#EEEEEE"
+        android:clipToPadding="true"
+        android:padding="16dp"
+        app:layout_anchorGravity="top"
+        app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+================
+File: res/layout/item_gesture_recognizer_result.xml
+================
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/tvLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/black"
+        android:textSize="18sp"
+        app:layout_constraintEnd_toStartOf="@+id/tvScore"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tvScore"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="18sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+================
+File: res/navigation/nav_graph.xml
+================
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/permissions_fragment">
+
+    <fragment
+        android:id="@+id/permissions_fragment"
+        android:name="com.google.mediapipe.examples.gesturerecognizer.PermissionsFragment"
+        android:label="PermissionsFragment">
+
+        <action
+            android:id="@+id/action_permissions_to_camera"
+            app:destination="@id/camera_fragment"
+            app:popUpTo="@id/permissions_fragment"
+            app:popUpToInclusive="true" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/camera_fragment"
+        android:name="com.google.mediapipe.examples.gesturerecognizer.CameraFragment"
+        android:label="CameraFragment">
+
+        <action
+            android:id="@+id/action_camera_to_permissions"
+            app:destination="@id/permissions_fragment"
+            app:popUpTo="@id/camera_fragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+</navigation>
+
+================
+File: java/com/google/mediapipe/examples/gesturerecognizer/MainActivity.kt
+================
+package com.google.mediapipe.examples.gesturerecognizer
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+        finish()
+    }
+}
+
+================
+File: java/com/google/mediapipe/examples/gesturerecognizer/CameraFragment.kt
+================
+package com.google.mediapipe.examples.gesturerecognizer
+
+import android.annotation.SuppressLint
+import android.content.res.Configuration
+import android.os.Bundle
+import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Toast
+import androidx.camera.core.*
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.navigation.Navigation
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerListener {
+
+    companion object {
+        private const val TAG = "Hand gesture recognizer"
+    }
+
+    private lateinit var gestureRecognizerHelper: GestureRecognizerHelper
+    private var defaultNumResults = 1
+    private val gestureRecognizerResultAdapter: GestureRecognizerResultsAdapter by lazy {
+        GestureRecognizerResultsAdapter().apply { updateAdapterSize(defaultNumResults) }
+    }
+    private var preview: Preview? = null
+    private var imageAnalyzer: ImageAnalysis? = null
+    private var camera: Camera? = null
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var cameraFacing = CameraSelector.LENS_FACING_FRONT
+
+    /** Blocking ML operations are performed using this executor */
+    private lateinit var backgroundExecutor: ExecutorService
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var viewFinder: PreviewView
+    private lateinit var overlay: OverlayView
+
+    override fun onResume() {
+        super.onResume()
+        // Make sure that all permissions are still present, since the
+        // user could have removed them while the app was in paused state.
+        if (!PermissionsFragment.hasPermissions(requireContext())) {
+            Navigation.findNavController(requireActivity(), R.id.fragment_container)
+                    .navigate(R.id.action_camera_to_permissions)
+        }
+
+        // Start the GestureRecognizerHelper again when users come back
+        // to the foreground.
+        backgroundExecutor.execute {
+            if (gestureRecognizerHelper.isClosed()) {
+                gestureRecognizerHelper.setupGestureRecognizer()
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (this::gestureRecognizerHelper.isInitialized) {
+            // Close the Gesture Recognizer helper and release resources
+            backgroundExecutor.execute { gestureRecognizerHelper.clearGestureRecognizer() }
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+
+        // Shut down our background executor
+        backgroundExecutor.shutdown()
+        backgroundExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)
+    }
+
+    override fun onCreateView(
+            inflater: LayoutInflater,
+            container: ViewGroup?,
+            savedInstanceState: Bundle?
+    ): View {
+        val view = inflater.inflate(R.layout.fragment_camera, container, false)
+        recyclerView = view.findViewById(R.id.recyclerview_results)
+        viewFinder = view.findViewById(R.id.view_finder)
+        overlay = view.findViewById(R.id.overlay)
+        return view
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = gestureRecognizerResultAdapter
+
+        // Initialize our background executor
+        backgroundExecutor = Executors.newSingleThreadExecutor()
+
+        // Wait for the views to be properly laid out
+        viewFinder.post {
+            // Set up the camera and its use cases
+            setUpCamera()
+        }
+
+        // Create the Hand Gesture Recognition Helper that will handle the
+        // inference
+        backgroundExecutor.execute {
+            gestureRecognizerHelper =
+                    GestureRecognizerHelper(
+                            context = requireContext(),
+                            gestureRecognizerListener = this
+                    )
+        }
+
+        // Attach listeners to UI control widgets
+    }
+
+    // Initialize CameraX, and prepare to bind the camera use cases
+    private fun setUpCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener(
+                {
+                    // CameraProvider
+                    cameraProvider = cameraProviderFuture.get()
+
+                    // Build and bind the camera use cases
+                    bindCameraUseCases()
+                },
+                ContextCompat.getMainExecutor(requireContext())
+        )
+    }
+
+    // Declare and bind preview, capture and analysis use cases
+    @SuppressLint("UnsafeOptInUsageError")
+    private fun bindCameraUseCases() {
+
+        // CameraProvider
+        val cameraProvider =
+                cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
+
+        val cameraSelector = CameraSelector.Builder().requireLensFacing(cameraFacing).build()
+
+        // Preview. Only using the 4:3 ratio because this is the closest to our models
+        preview =
+                Preview.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .setTargetRotation(viewFinder.display.rotation)
+                        .build()
+
+        // ImageAnalysis. Using RGBA 8888 to match how our models work
+        imageAnalyzer =
+                ImageAnalysis.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                        .setTargetRotation(viewFinder.display.rotation)
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                        .build()
+                        // The analyzer can then be assigned to the instance
+                        .also {
+                            it.setAnalyzer(backgroundExecutor) { image -> recognizeHand(image) }
+                        }
+
+        // Must unbind the use-cases before rebinding them
+        cameraProvider.unbindAll()
+
+        try {
+            // A variable number of use-cases can be passed here -
+            // camera provides access to CameraControl & CameraInfo
+            camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
+
+            // Attach the viewfinder's surface provider to preview use case
+            preview?.setSurfaceProvider(viewFinder.surfaceProvider)
+        } catch (exc: Exception) {
+            Log.e(TAG, "Use case binding failed", exc)
+        }
+    }
+
+    private fun recognizeHand(imageProxy: ImageProxy) {
+        gestureRecognizerHelper.recognizeLiveStream(
+                imageProxy = imageProxy,
+        )
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        imageAnalyzer?.targetRotation = viewFinder.display.rotation
+    }
+
+    // Update UI after a hand gesture has been recognized. Extracts original
+    // image height/width to scale and place the landmarks properly through
+    // OverlayView. Only one result is expected at a time. If two or more
+    // hands are seen in the camera frame, only one will be processed.
+    override fun onResults(resultBundle: GestureRecognizerHelper.ResultBundle) {
+        activity?.runOnUiThread {
+            if (::overlay.isInitialized) {
+                // Show result of recognized gesture
+                val gestureCategories = resultBundle.results.first().gestures()
+                gestureRecognizerResultAdapter.updateResults(
+                        if (gestureCategories.isNotEmpty()) gestureCategories.first()
+                        else emptyList()
+                )
+
+                // Pass necessary information to OverlayView for drawing on the canvas
+                overlay.setResults(
+                        resultBundle.results.first(),
+                        resultBundle.inputImageHeight,
+                        resultBundle.inputImageWidth,
+                )
+
+                // Force a redraw
+                overlay.invalidate()
+            }
+        }
+    }
+
+    override fun onError(error: String) {
+        activity?.runOnUiThread {
+            Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+            gestureRecognizerResultAdapter.updateResults(emptyList())
+        }
+    }
+}
+
+================
+File: java/com/google/mediapipe/examples/gesturerecognizer/GestureRecognizerHelper.kt
+================
+package com.google.mediapipe.examples.gesturerecognizer
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.os.SystemClock
+import android.util.Log
+import androidx.annotation.VisibleForTesting
+import androidx.camera.core.ImageProxy
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.core.Delegate
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizer
+import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizerResult
+
+class GestureRecognizerHelper(
+        val context: Context,
+        val gestureRecognizerListener: GestureRecognizerListener? = null
+) {
+
+    // For this example this needs to be a var so it can be reset on changes. If the
+    // GestureRecognizer will not change, a lazy val would be preferable.
+    private var gestureRecognizer: GestureRecognizer? = null
+
+    init {
+        setupGestureRecognizer()
+    }
+
+    fun clearGestureRecognizer() {
+        gestureRecognizer?.close()
+        gestureRecognizer = null
+    }
+
+    // Initialize the gesture recognizer using current settings on the thread that is using it. CPU
+    // can be used with recognizers that are created on the main thread and used on a background
+    // thread, but the GPU delegate needs to be used on the thread that initialized the recognizer
+    fun setupGestureRecognizer() {
+        // Set general recognition options, including number of used threads
+        val baseOptionBuilder = BaseOptions.builder()
+
+        // Use the specified hardware for running the model. Default to CPU
+        baseOptionBuilder.setDelegate(Delegate.CPU)
+
+        baseOptionBuilder.setModelAssetPath("gesture_recognizer.task")
+
+        try {
+            val baseOptions = baseOptionBuilder.build()
+            val optionsBuilder =
+                    GestureRecognizer.GestureRecognizerOptions.builder()
+                            .setBaseOptions(baseOptions)
+                            .setRunningMode(RunningMode.LIVE_STREAM)
+
+            optionsBuilder
+                    .setResultListener(this::returnLivestreamResult)
+                    .setErrorListener(this::returnLivestreamError)
+
+            val options = optionsBuilder.build()
+            gestureRecognizer = GestureRecognizer.createFromOptions(context, options)
+        } catch (e: IllegalStateException) {
+            gestureRecognizerListener?.onError(
+                    "Gesture recognizer failed to initialize. See error logs for details"
+            )
+            Log.e(TAG, "MP Task Vision failed to load the task with error: " + e.message)
+        } catch (e: RuntimeException) {
+            gestureRecognizerListener?.onError(
+                    "Gesture recognizer failed to initialize. See error logs for details"
+            )
+            Log.e(TAG, "MP Task Vision failed to load the task with error: " + e.message)
+        }
+    }
+
+    // Convert the ImageProxy to MP Image and feed it to GestureRecognizer.
+    fun recognizeLiveStream(
+            imageProxy: ImageProxy,
+    ) {
+        val frameTime = SystemClock.uptimeMillis()
+
+        // Copy out RGB bits from the frame to a bitmap buffer
+        val bitmapBuffer =
+                Bitmap.createBitmap(imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888)
+        imageProxy.use { bitmapBuffer.copyPixelsFromBuffer(imageProxy.planes[0].buffer) }
+        imageProxy.close()
+
+        val matrix =
+                Matrix().apply {
+                    // Rotate the frame received from the camera to be in the same direction as
+                    // it'll be shown
+                    postRotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+
+                    // flip image since we only support front camera
+                    postScale(-1f, 1f, imageProxy.width.toFloat(), imageProxy.height.toFloat())
+                }
+
+        // Rotate bitmap to match what our model expects
+        val rotatedBitmap =
+                Bitmap.createBitmap(
+                        bitmapBuffer,
+                        0,
+                        0,
+                        bitmapBuffer.width,
+                        bitmapBuffer.height,
+                        matrix,
+                        true
+                )
+
+        // Convert the input Bitmap object to an MPImage object to run inference
+        val mpImage = BitmapImageBuilder(rotatedBitmap).build()
+
+        recognizeAsync(mpImage, frameTime)
+    }
+
+    // Run hand gesture recognition using MediaPipe Gesture Recognition API
+    @VisibleForTesting
+    fun recognizeAsync(mpImage: MPImage, frameTime: Long) {
+        // As we're using running mode LIVE_STREAM, the recognition result will be returned in
+        // returnLivestreamResult function
+        gestureRecognizer?.recognizeAsync(mpImage, frameTime)
+    }
+
+    // Return running status of the recognizer helper
+    fun isClosed(): Boolean {
+        return gestureRecognizer == null
+    }
+
+    // Return the recognition result to the GestureRecognizerHelper's caller
+    private fun returnLivestreamResult(result: GestureRecognizerResult, input: MPImage) {
+        gestureRecognizerListener?.onResults(
+                ResultBundle(listOf(result), input.height, input.width)
+        )
+    }
+
+    // Return errors thrown during recognition to this GestureRecognizerHelper's caller
+    private fun returnLivestreamError(error: RuntimeException) {
+        gestureRecognizerListener?.onError(error.message ?: "An unknown error has occurred")
+    }
+
+    companion object {
+        val TAG = "GestureRecognizerHelper ${this.hashCode()}"
+    }
+
+    data class ResultBundle(
+            val results: List<GestureRecognizerResult>,
+            val inputImageHeight: Int,
+            val inputImageWidth: Int,
+    )
+
+    interface GestureRecognizerListener {
+        fun onError(error: String)
+        fun onResults(resultBundle: ResultBundle)
+    }
+}
+
+================
+File: java/com/google/mediapipe/examples/gesturerecognizer/GestureRecognizerResultsAdapter.kt
+================
+package com.google.mediapipe.examples.gesturerecognizer
+
+import android.annotation.SuppressLint
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.google.mediapipe.tasks.components.containers.Category
+import java.util.Locale
+import kotlin.math.min
+
+class GestureRecognizerResultsAdapter :
+        RecyclerView.Adapter<GestureRecognizerResultsAdapter.ViewHolder>() {
+
+    private var adapterCategories: MutableList<Category?> = mutableListOf()
+    private var adapterSize: Int = 0
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun updateResults(categories: List<Category>?) {
+        adapterCategories = MutableList(adapterSize) { null }
+        if (categories != null) {
+            val sortedCategories = categories.sortedByDescending { it.score() }
+            val min = min(sortedCategories.size, adapterCategories.size)
+            for (i in 0 until min) {
+                adapterCategories[i] = sortedCategories[i]
+            }
+            adapterCategories.sortedBy { it?.index() }
+            notifyDataSetChanged()
+        }
+    }
+
+    fun updateAdapterSize(size: Int) {
+        adapterSize = size
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view =
+                LayoutInflater.from(parent.context)
+                        .inflate(R.layout.item_gesture_recognizer_result, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        adapterCategories[position].let { category ->
+            holder.bind(category?.categoryName(), category?.score())
+        }
+    }
+
+    override fun getItemCount(): Int = adapterCategories.size
+
+    inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+
+        private val tvLabel: TextView = view.findViewById(R.id.tvLabel)
+        private val tvScore: TextView = view.findViewById(R.id.tvScore)
+
+        fun bind(label: String?, score: Float?) {
+            tvLabel.text = label ?: "--"
+            tvScore.text = if (score != null) String.format(Locale.US, "%.2f", score) else "--"
+        }
+    }
+}
+
+
+================
+File: java/com/google/mediapipe/examples/gesturerecognizer/OverlayView.kt
+================
+package com.google.mediapipe.examples.gesturerecognizer
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.util.AttributeSet
+import android.view.View
+import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizerResult
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
+import kotlin.math.max
+
+class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs) {
+
+    private var results: GestureRecognizerResult? = null
+    private val linePaint =
+            Paint().apply {
+                color = Color.BLUE
+                strokeWidth = 8f
+                style = Paint.Style.STROKE
+            }
+    private val pointPaint =
+            Paint().apply {
+                color = Color.YELLOW
+                strokeWidth = 8f
+                style = Paint.Style.FILL
+            }
+
+    private var scaleFactor = 1f
+    private var imageWidth = 1
+    private var imageHeight = 1
+
+    override fun draw(canvas: Canvas) {
+        super.draw(canvas)
+        results?.let { gestureRecognizerResult ->
+            gestureRecognizerResult.landmarks().forEach { landmark ->
+                landmark.forEach { normalizedLandmark ->
+                    canvas.drawPoint(
+                            normalizedLandmark.x() * imageWidth * scaleFactor,
+                            normalizedLandmark.y() * imageHeight * scaleFactor,
+                            pointPaint
+                    )
+                }
+
+                HandLandmarker.HAND_CONNECTIONS.forEach { connection ->
+                    val start = gestureRecognizerResult.landmarks()[0][connection!!.start()]
+                    val end = gestureRecognizerResult.landmarks()[0][connection.end()]
+                    canvas.drawLine(
+                            start.x() * imageWidth * scaleFactor,
+                            start.y() * imageHeight * scaleFactor,
+                            end.x() * imageWidth * scaleFactor,
+                            end.y() * imageHeight * scaleFactor,
+                            linePaint
+                    )
+                }
+            }
+        }
+    }
+
+    fun setResults(
+            gestureRecognizerResult: GestureRecognizerResult,
+            imageHeight: Int,
+            imageWidth: Int,
+    ) {
+        results = gestureRecognizerResult
+
+        this.imageHeight = imageHeight
+        this.imageWidth = imageWidth
+
+        // PreviewView is in FILL_START mode. So we need to scale up the
+        // landmarks to match with the size that the captured images will be
+        // displayed.
+        scaleFactor = max(width * 1f / imageWidth, height * 1f / imageHeight)
+
+        invalidate()
+    }
+}
+
+================
+File: java/com/google/mediapipe/examples/gesturerecognizer/PermissionsFragment.kt
+================
+package com.google.mediapipe.examples.gesturerecognizer
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.Navigation
+
+private val PERMISSIONS_REQUIRED = arrayOf(Manifest.permission.CAMERA)
+
+class PermissionsFragment : Fragment() {
+
+    private val requestPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                Toast.makeText(
+                    context,
+                    "Permission request granted",
+                    Toast.LENGTH_LONG
+                ).show()
+                navigateToCamera()
+            } else {
+                Toast.makeText(
+                    context,
+                    "Permission request denied",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        when (PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.CAMERA
+            ) -> {
+                navigateToCamera()
+            }
+            else -> {
+                requestPermissionLauncher.launch(
+                    Manifest.permission.CAMERA
+                )
+            }
+        }
+    }
+
+    private fun navigateToCamera() {
+        lifecycleScope.launchWhenStarted {
+            Navigation.findNavController(
+                requireActivity(),
+                R.id.fragment_container
+            ).navigate(
+                R.id.action_permissions_to_camera
+            )
+        }
+    }
+
+    companion object {
+
+        /** Convenience method used to check if all permissions required by this app are granted */
+        fun hasPermissions(context: Context) = PERMISSIONS_REQUIRED.all {
+            ContextCompat.checkSelfPermission(
+                context,
+                it
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+}
+

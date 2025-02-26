@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/welcome_fragment">
+
+    <fragment
+        android:id="@+id/welcome_fragment"
+        android:name="com.google.mediapipe.examples.gesturerecognizer.WelcomeFragment"
+        android:label="WelcomeFragment">
+       
+             <action
+            android:id="@+id/action_welcome_to_permission"
+            app:destination="@id/permissions_fragment" /> 
+            <action
+            android:id="@+id/action_welcome_to_auto_read"
+            app:destination="@id/auto_read_fragment" />
+        <action
+            android:id="@+id/action_welcome_to_camera"
+            app:destination="@id/camera_fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/permissions_fragment"
+        android:name="com.google.mediapipe.examples.gesturerecognizer.PermissionsFragment"
+        android:label="PermissionsFragment">
+
+        <action
+            android:id="@+id/action_permissions_to_camera"
+            app:destination="@id/camera_fragment"
+            app:popUpTo="@id/permissions_fragment"
+            app:popUpToInclusive="true" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/camera_fragment"
+        android:name="com.google.mediapipe.examples.gesturerecognizer.CameraFragment"
+        android:label="CameraFragment">
+
+        <action
+            android:id="@+id/action_camera_to_permissions"
+            app:destination="@id/permissions_fragment"
+            app:popUpTo="@id/camera_fragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+ <fragment
+        android:id="@+id/auto_read_fragment"
+        android:name="com.google.mediapipe.examples.gesturerecognizer.AutoReadFragment"
+        android:label="AutoReadFragment" />
+
+</navigation>

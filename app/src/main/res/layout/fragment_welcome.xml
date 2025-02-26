@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <ImageView
+        android:id="@+id/logo"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:src="@drawable/logo"
+        android:contentDescription="App Logo"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Welcome to LingoFlow"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:id="@+id/button_auto_read"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Auto Read Mode"
+        android:layout_marginBottom="10dp"/>
+
+    <Button
+        android:id="@+id/button_point_to_read"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Point to Read Mode" />
+</LinearLayout>
