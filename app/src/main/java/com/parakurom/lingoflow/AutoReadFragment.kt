@@ -1,15 +1,16 @@
 package com.parakurom.lingoflow
 
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
+import android.widget.Toast
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -19,29 +20,34 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class AutoReadFragment : Fragment() {
 
     private lateinit var viewFinder: PreviewView
-    private lateinit var textOverlay: TextView
     private lateinit var recognizedTextView: TextView
-    private lateinit var scrollView: NestedScrollView
+    private lateinit var textOverlay: TextView
+    private lateinit var scrollContainer: NestedScrollView
+    private lateinit var captureButton: Button
+    private lateinit var textSection: LinearLayout
+    private var imageCapture: ImageCapture? = null
     private lateinit var cameraExecutor: ExecutorService
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private var textToSpeech: TextToSpeech? = null
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_auto_read, container, false)
 
         viewFinder = view.findViewById(R.id.view_finder)
-        textOverlay = view.findViewById(R.id.text_overlay)
+        scrollContainer = view.findViewById(R.id.scroll_container)
         recognizedTextView = view.findViewById(R.id.recognized_text)
-        scrollView = view.findViewById(R.id.scrollView)
+        textOverlay = view.findViewById(R.id.text_overlay)
+        captureButton = view.findViewById(R.id.capture_button)
+        textSection = view.findViewById(R.id.text_section)
 
         return view
     }
@@ -52,48 +58,63 @@ class AutoReadFragment : Fragment() {
         cameraExecutor = Executors.newSingleThreadExecutor()
         startCamera()
 
-        // Hide text overlay when scrolling up
-        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            if (scrollY > 100) {
-                textOverlay.visibility = View.VISIBLE
+        textToSpeech = TextToSpeech(requireContext()) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech?.language = Locale.ENGLISH
             } else {
-                textOverlay.visibility = View.GONE
+                Log.e("AutoReadFragment", "TextToSpeech initialization failed")
+                Toast.makeText(requireContext(), "TTS Initialization Failed", Toast.LENGTH_SHORT).show()
             }
         }
+
+        captureButton.setOnClickListener {
+            captureImage()
+        }
+
     }
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
 
-        cameraProviderFuture.addListener(
-                {
-                    val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+        cameraProviderFuture.addListener({
+            try {
+                val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-                    val preview =
-                            Preview.Builder().build().also {
-                                it.setSurfaceProvider(viewFinder.surfaceProvider)
-                            }
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(viewFinder.surfaceProvider)
+                }
 
-                    val imageAnalysis =
-                            ImageAnalysis.Builder()
-                                    .setBackpressureStrategy(
-                                        ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-                                    )
-                                    .build()
+                imageCapture = ImageCapture.Builder().build()
 
-                    imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                        processImage(imageProxy)
-                    }
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+            } catch (e: Exception) {
+                Log.e("AutoReadFragment", "Camera binding failed", e)
+                Toast.makeText(requireContext(), "Camera initialization failed", Toast.LENGTH_LONG).show()
+            }
+        }, ContextCompat.getMainExecutor(requireContext()))
+    }
 
-                    try {
-                        cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis)
-                    } catch (exc: Exception) {
-                        Log.e("AutoReadFragment", "Camera binding failed", exc)
-                    }
-                },
-            ContextCompat.getMainExecutor(requireContext())
+    private fun captureImage() {
+        val imageCapture = imageCapture ?: run {
+            Log.e("AutoReadFragment", "ImageCapture is not initialized")
+            Toast.makeText(requireContext(), "Camera is not ready yet", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        imageCapture.takePicture(
+            ContextCompat.getMainExecutor(requireContext()),
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(imageProxy: ImageProxy) {
+                    processImage(imageProxy)
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    Log.e("AutoReadFragment", "Image capture failed", exception)
+                    Toast.makeText(requireContext(), "Image capture failed", Toast.LENGTH_SHORT).show()
+                }
+            }
         )
     }
 
@@ -102,20 +123,39 @@ class AutoReadFragment : Fragment() {
         if (mediaImage != null) {
             val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
-            textRecognizer
-                    .process(image)
-                    .addOnSuccessListener { visionText -> displayText(visionText) }
-                    .addOnFailureListener { e -> Log.e("AutoReadFragment", "OCR failed", e) }
-                    .addOnCompleteListener { imageProxy.close() }
+            textRecognizer.process(image)
+                .addOnSuccessListener { visionText -> displayText(visionText) }
+                .addOnFailureListener { e -> Log.e("AutoReadFragment", "OCR failed", e) }
+                .addOnCompleteListener { imageProxy.close() }
         }
     }
 
     private fun displayText(visionText: Text) {
-        activity?.runOnUiThread { recognizedTextView.text = visionText.text }
+        activity?.runOnUiThread {
+            val recognizedText = visionText.text
+
+            if (recognizedText.isNotEmpty()) {
+                recognizedTextView.text = recognizedText
+                textOverlay.visibility = View.VISIBLE
+                recognizedTextView.visibility = View.VISIBLE
+                textSection.visibility = View.VISIBLE
+
+                textToSpeech?.speak(recognizedText, TextToSpeech.QUEUE_FLUSH, null, null)
+
+                scrollContainer.postDelayed({
+                    scrollContainer.fullScroll(View.FOCUS_DOWN)
+                }, 300)
+            } else {
+                Toast.makeText(requireContext(), "No text detected", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()
         cameraExecutor.shutdown()
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
     }
 }
