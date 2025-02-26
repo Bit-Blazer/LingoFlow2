@@ -6,7 +6,7 @@
 
     <fragment
         android:id="@+id/welcome_fragment"
-        android:name="com.google.mediapipe.examples.gesturerecognizer.WelcomeFragment"
+        android:name="com.parakurom.lingoflow.WelcomeFragment"
         android:label="WelcomeFragment">
        
              <action
@@ -22,7 +22,7 @@
 
     <fragment
         android:id="@+id/permissions_fragment"
-        android:name="com.google.mediapipe.examples.gesturerecognizer.PermissionsFragment"
+        android:name="com.parakurom.lingoflow.PermissionsFragment"
         android:label="PermissionsFragment">
 
         <action
@@ -35,7 +35,7 @@
 
     <fragment
         android:id="@+id/camera_fragment"
-        android:name="com.google.mediapipe.examples.gesturerecognizer.CameraFragment"
+        android:name="com.parakurom.lingoflow.CameraFragment"
         android:label="CameraFragment">
 
         <action
@@ -46,7 +46,7 @@
     </fragment>
  <fragment
         android:id="@+id/auto_read_fragment"
-        android:name="com.google.mediapipe.examples.gesturerecognizer.AutoReadFragment"
+        android:name="com.parakurom.lingoflow.AutoReadFragment"
         android:label="AutoReadFragment" />
 
 </navigation>

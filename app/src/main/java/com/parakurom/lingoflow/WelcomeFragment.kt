@@ -1,4 +1,4 @@
-package com.google.mediapipe.examples.gesturerecognizer
+package com.parakurom.lingoflow
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -19,7 +19,7 @@ class WelcomeFragment : Fragment() {
         view.findViewById<View>(R.id.button_auto_read).setOnClickListener {
             Navigation.findNavController(view)
                 .navigate(R.id.action_welcome_to_auto_read)
-        }        
+        }
 
         // Point to Read Mode (Navigates to Camera)
         view.findViewById<View>(R.id.button_point_to_read).setOnClickListener {

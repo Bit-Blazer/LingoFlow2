@@ -1,4 +1,4 @@
-package com.google.mediapipe.examples.gesturerecognizer
+package com.parakurom.lingoflow
 
 import android.content.Context
 import android.graphics.Canvas

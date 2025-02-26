@@ -1,4 +1,4 @@
-package com.google.mediapipe.examples.gesturerecognizer
+package com.parakurom.lingoflow
 
 import android.Manifest
 import android.content.Context
@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
 
 private val PERMISSIONS_REQUIRED = arrayOf(Manifest.permission.CAMERA)
+
 
 class PermissionsFragment : Fragment() {
 

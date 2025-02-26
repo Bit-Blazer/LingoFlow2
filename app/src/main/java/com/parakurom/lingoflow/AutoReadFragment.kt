@@ -1,4 +1,4 @@
-package com.google.mediapipe.examples.gesturerecognizer
+package com.parakurom.lingoflow
 
 import android.os.Bundle
 import android.util.Log
@@ -6,7 +6,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -29,9 +32,9 @@ class AutoReadFragment : Fragment() {
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
     override fun onCreateView(
-            inflater: LayoutInflater,
-            container: ViewGroup?,
-            savedInstanceState: Bundle?
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_auto_read, container, false)
 
@@ -75,7 +78,7 @@ class AutoReadFragment : Fragment() {
                     val imageAnalysis =
                             ImageAnalysis.Builder()
                                     .setBackpressureStrategy(
-                                            ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                                        ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
                                     )
                                     .build()
 
@@ -90,7 +93,7 @@ class AutoReadFragment : Fragment() {
                         Log.e("AutoReadFragment", "Camera binding failed", exc)
                     }
                 },
-                ContextCompat.getMainExecutor(requireContext())
+            ContextCompat.getMainExecutor(requireContext())
         )
     }
 

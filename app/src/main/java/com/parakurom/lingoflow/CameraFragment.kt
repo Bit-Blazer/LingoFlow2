@@ -1,4 +1,4 @@
-package com.google.mediapipe.examples.gesturerecognizer
+package com.parakurom.lingoflow
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
@@ -8,7 +8,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.camera.core.*
+import androidx.camera.core.AspectRatio
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -78,9 +83,9 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
     }
 
     override fun onCreateView(
-            inflater: LayoutInflater,
-            container: ViewGroup?,
-            savedInstanceState: Bundle?
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_point_to_read, container, false)
         recyclerView = view.findViewById(R.id.recyclerview_results)
@@ -108,10 +113,10 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
         // inference
         backgroundExecutor.execute {
             gestureRecognizerHelper =
-                    GestureRecognizerHelper(
-                            context = requireContext(),
-                            gestureRecognizerListener = this
-                    )
+                GestureRecognizerHelper(
+                    context = requireContext(),
+                    gestureRecognizerListener = this
+                )
         }
 
         // Attach listeners to UI control widgets
@@ -128,7 +133,7 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
                     // Build and bind the camera use cases
                     bindCameraUseCases()
                 },
-                ContextCompat.getMainExecutor(requireContext())
+            ContextCompat.getMainExecutor(requireContext())
         )
     }
 

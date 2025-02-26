@@ -11,7 +11,7 @@
         android:layout_height="match_parent"
         app:scaleType="fillStart" />
 
-    <com.google.mediapipe.examples.gesturerecognizer.OverlayView
+    <com.parakurom.lingoflow.OverlayView
         android:id="@+id/overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

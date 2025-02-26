@@ -1,4 +1,4 @@
-package com.google.mediapipe.examples.gesturerecognizer
+package com.parakurom.lingoflow
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -16,8 +16,8 @@ import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizer
 import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizerResult
 
 class GestureRecognizerHelper(
-        val context: Context,
-        val gestureRecognizerListener: GestureRecognizerListener? = null
+    val context: Context,
+    val gestureRecognizerListener: GestureRecognizerListener? = null
 ) {
 
     // For this example this needs to be a var so it can be reset on changes. If the
@@ -73,13 +73,13 @@ class GestureRecognizerHelper(
 
     // Convert the ImageProxy to MP Image and feed it to GestureRecognizer.
     fun recognizeLiveStream(
-            imageProxy: ImageProxy,
+        imageProxy: ImageProxy,
     ) {
         val frameTime = SystemClock.uptimeMillis()
 
         // Copy out RGB bits from the frame to a bitmap buffer
         val bitmapBuffer =
-                Bitmap.createBitmap(imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888)
+            Bitmap.createBitmap(imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888)
         imageProxy.use { bitmapBuffer.copyPixelsFromBuffer(imageProxy.planes[0].buffer) }
         imageProxy.close()
 
@@ -95,15 +95,15 @@ class GestureRecognizerHelper(
 
         // Rotate bitmap to match what our model expects
         val rotatedBitmap =
-                Bitmap.createBitmap(
-                        bitmapBuffer,
-                        0,
-                        0,
-                        bitmapBuffer.width,
-                        bitmapBuffer.height,
-                        matrix,
-                        true
-                )
+            Bitmap.createBitmap(
+                bitmapBuffer,
+                0,
+                0,
+                bitmapBuffer.width,
+                bitmapBuffer.height,
+                matrix,
+                true
+            )
 
         // Convert the input Bitmap object to an MPImage object to run inference
         val mpImage = BitmapImageBuilder(rotatedBitmap).build()
@@ -127,7 +127,7 @@ class GestureRecognizerHelper(
     // Return the recognition result to the GestureRecognizerHelper's caller
     private fun returnLivestreamResult(result: GestureRecognizerResult, input: MPImage) {
         gestureRecognizerListener?.onResults(
-                ResultBundle(listOf(result), input.height, input.width)
+            ResultBundle(listOf(result), input.height, input.width)
         )
     }
 
@@ -141,9 +141,9 @@ class GestureRecognizerHelper(
     }
 
     data class ResultBundle(
-            val results: List<GestureRecognizerResult>,
-            val inputImageHeight: Int,
-            val inputImageWidth: Int,
+        val results: List<GestureRecognizerResult>,
+        val inputImageHeight: Int,
+        val inputImageWidth: Int,
     )
 
     interface GestureRecognizerListener {
