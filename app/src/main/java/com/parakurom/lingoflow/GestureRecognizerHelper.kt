@@ -43,7 +43,7 @@ class GestureRecognizerHelper(
         // Use the specified hardware for running the model. Default to CPU
         baseOptionBuilder.setDelegate(Delegate.CPU)
 
-        baseOptionBuilder.setModelAssetPath("gesture_recognizer.task")
+        baseOptionBuilder.setModelAssetPath("gesture_recognizer_custom.task")
 
         try {
             val baseOptions = baseOptionBuilder.build()

@@ -7,7 +7,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -17,6 +16,8 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
@@ -29,10 +30,11 @@ class AutoReadFragment : Fragment() {
 
     private lateinit var viewFinder: PreviewView
     private lateinit var recognizedTextView: TextView
-    private lateinit var scrollContainer: NestedScrollView
-    private lateinit var captureButton: Button
+    private lateinit var bottomSheet: NestedScrollView
+    private lateinit var bottomSheetBehavior: BottomSheetBehavior<NestedScrollView>
+    private lateinit var captureButton: FloatingActionButton
+    private lateinit var restartTtsButton: Button
     private lateinit var stopTtsButton: Button
-    private lateinit var textSection: LinearLayout
     private lateinit var seekBarPitch: SeekBar
     private lateinit var seekBarSpeed: SeekBar
     private var imageCapture: ImageCapture? = null
@@ -40,6 +42,7 @@ class AutoReadFragment : Fragment() {
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private var textToSpeech: TextToSpeech? = null
     private var lastRecognizedText: String = ""
+    private var isSpeaking: Boolean = false
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -47,11 +50,11 @@ class AutoReadFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_auto_read, container, false)
 
         viewFinder = view.findViewById(R.id.view_finder)
-        scrollContainer = view.findViewById(R.id.scroll_container)
+        bottomSheet = view.findViewById(R.id.bottom_sheet)
         recognizedTextView = view.findViewById(R.id.recognized_text)
         captureButton = view.findViewById(R.id.capture_button)
+        restartTtsButton = view.findViewById(R.id.restart_tts_button)
         stopTtsButton = view.findViewById(R.id.stop_tts_button)
-        textSection = view.findViewById(R.id.text_section)
         seekBarPitch = view.findViewById(R.id.seekBarPitch)
         seekBarSpeed = view.findViewById(R.id.seekBarSpeed)
 
@@ -61,20 +64,21 @@ class AutoReadFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Initialize bottom sheet behavior
+        bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet)
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+
         cameraExecutor = Executors.newSingleThreadExecutor()
         startCamera()
 
-        textToSpeech = TextToSpeech(requireContext()) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                textToSpeech?.language = Locale.ENGLISH
-            } else {
-                Log.e("AutoReadFragment", "TextToSpeech initialization failed")
-                Toast.makeText(requireContext(), "TTS Initialization Failed", Toast.LENGTH_SHORT).show()
-            }
-        }
+        initializeTextToSpeech()
 
         captureButton.setOnClickListener {
             captureImage()
+        }
+
+        restartTtsButton.setOnClickListener {
+            restartTextToSpeech()
         }
 
         stopTtsButton.setOnClickListener {
@@ -83,7 +87,13 @@ class AutoReadFragment : Fragment() {
 
         seekBarPitch.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                setPitch(progress / 50f)
+                if (fromUser) {
+                    setPitch(progress / 50f)
+                    // Re-speak text with new pitch if currently speaking
+                    if (isSpeaking && lastRecognizedText.isNotEmpty()) {
+                        restartTextToSpeech()
+                    }
+                }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -91,11 +101,34 @@ class AutoReadFragment : Fragment() {
 
         seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                setSpeechRate(progress / 50f)
+                if (fromUser) {
+                    setSpeechRate(progress / 50f)
+                    // Re-speak text with new speed if currently speaking
+                    if (isSpeaking && lastRecognizedText.isNotEmpty()) {
+                        restartTextToSpeech()
+                    }
+                }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
+    }
+
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(requireContext()) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech?.language = Locale.ENGLISH
+                textToSpeech?.setOnUtteranceCompletedListener {
+                    activity?.runOnUiThread {
+                        isSpeaking = false
+                        updateButtonStates()
+                    }
+                }
+            } else {
+                Log.e("AutoReadFragment", "TextToSpeech initialization failed")
+                Toast.makeText(requireContext(), "TTS Initialization Failed", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun startCamera() {
@@ -161,26 +194,49 @@ class AutoReadFragment : Fragment() {
 
             if (lastRecognizedText.isNotEmpty()) {
                 recognizedTextView.text = lastRecognizedText
-                recognizedTextView.visibility = View.VISIBLE
-                textSection.visibility = View.VISIBLE
 
-                speakText(lastRecognizedText)
+                // Expand bottom sheet to show the text
+                bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
 
-                scrollContainer.postDelayed({
-                    scrollContainer.fullScroll(View.FOCUS_DOWN)
-                }, 300)
+                // Start speaking automatically on capture
+                startTextToSpeech()
             } else {
                 Toast.makeText(requireContext(), "No text detected", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun speakText(text: String) {
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    private fun startTextToSpeech() {
+        if (lastRecognizedText.isEmpty()) {
+            Toast.makeText(requireContext(), "No text to read", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val params = HashMap<String, String>()
+        params[TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID] = "speechId"
+
+        textToSpeech?.speak(lastRecognizedText, TextToSpeech.QUEUE_FLUSH, params)
+        isSpeaking = true
+        updateButtonStates()
     }
 
     private fun stopTextToSpeech() {
-        textToSpeech?.stop()
+        if (isSpeaking) {
+            textToSpeech?.stop()
+            isSpeaking = false
+            updateButtonStates()
+        }
+    }
+
+    private fun restartTextToSpeech() {
+        stopTextToSpeech()
+        startTextToSpeech()
+    }
+
+    private fun updateButtonStates() {
+        // Enable/disable buttons based on state
+        stopTtsButton.isEnabled = isSpeaking
+        restartTtsButton.isEnabled = lastRecognizedText.isNotEmpty()
     }
 
     private fun setPitch(pitch: Float) {

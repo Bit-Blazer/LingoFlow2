@@ -12,27 +12,31 @@
         android:layout_height="150dp"
         android:src="@drawable/logo"
         android:contentDescription="App Logo"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="24dp" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Welcome to LingoFlow"
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center"
-        android:layout_marginBottom="20dp" />
+        android:layout_marginBottom="24dp" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/button_auto_read"
-        android:layout_width="wrap_content"
+        style="@style/Widget.MaterialComponents.Button"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:text="Auto Read Mode"
+        
         android:layout_marginBottom="10dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/button_point_to_read"
-        android:layout_width="wrap_content"
+        style="@style/Widget.MaterialComponents.Button"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
-        android:text="Point to Read Mode" />
+        android:text="Point to Read Mode"
+        />
 </LinearLayout>

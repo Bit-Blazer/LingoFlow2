@@ -5,82 +5,110 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Scrollable Layout (Camera Feed + Recognized Text) -->
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scroll_container"
+    <!-- Full-Screen Camera Preview -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/view_finder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:layout_height="match_parent"/>
+
+    <!-- Floating Action Button for Capture -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/capture_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_camera"
+        app:fabSize="normal"
+        app:tint="@android:color/white"
+        android:contentDescription="Capture image"
+        app:layout_anchor="@id/bottom_sheet"
+        app:layout_anchorGravity="top|end"/>
+
+    <!-- Bottom Sheet for Text Display and Controls -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/bottom_sheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_peekHeight="80dp"
+        app:behavior_hideable="false">
 
         <LinearLayout
+            android:id="@+id/text_section"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <!-- Full-Screen Camera Preview -->
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
-
-                <androidx.camera.view.PreviewView
-                    android:id="@+id/view_finder"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"/>
-
-                <!-- Floating Capture Button -->
-                <Button
-                    android:id="@+id/capture_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Capture"
-                    android:backgroundTint="@android:color/holo_blue_dark"
-                    android:textColor="@android:color/white"
-                    android:padding="16dp"
-                    android:layout_margin="16dp"
-                    android:layout_gravity="bottom|end"/>
-            </FrameLayout>
-
-            <!-- Recognized Text Section (Initially Hidden) -->
-            <LinearLayout
-                android:id="@+id/text_section"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone"
-                android:background="@android:color/black"
-                android:padding="10dp">
+                android:text="Recognized Text"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="16dp"/>
 
+            <TextView
+                android:id="@+id/recognized_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:minHeight="120dp"
+                android:layout_marginBottom="16dp"
+                android:hint="Captured text will appear here"/>
 
+            <!-- Button Row for TTS Controls -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
 
-                <TextView
-                    android:id="@+id/recognized_text"
-                    android:layout_width="match_parent"
+                <Button
+                    android:id="@+id/restart_tts_button"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:textSize="18sp"
-                    android:textColor="@android:color/white"
-                    android:padding="16dp"
-                    android:visibility="gone"/>
+                    android:layout_weight="1"
+                    android:text="Restart"
+                    android:layout_marginEnd="8dp"/>
+
                 <Button
                     android:id="@+id/stop_tts_button"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Stop Speech"
-                    android:layout_gravity="center"
-                    />
-
-                <SeekBar
-                    android:id="@+id/seekBarPitch"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    />
-
-                <SeekBar
-                    android:id="@+id/seekBarSpeed"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    />
+                    android:layout_weight="1"
+                    android:text="Stop"
+                    android:layout_marginStart="8dp"/>
             </LinearLayout>
-        </LinearLayout>
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Pitch"
+                android:textSize="14sp"/>
+
+            <SeekBar
+                android:id="@+id/seekBarPitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:progress="50"
+                android:max="100"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Speed"
+                android:textSize="14sp"/>
+
+            <SeekBar
+                android:id="@+id/seekBarSpeed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:progress="50"
+                android:max="100"/>
+        </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
