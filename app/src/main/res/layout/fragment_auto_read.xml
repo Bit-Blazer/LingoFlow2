@@ -11,6 +11,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
+    <!-- Region of Interest Selection Overlay -->
+    <com.parakurom.lingoflow.RegionOfInterestView
+        android:id="@+id/roi_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
     <!-- Floating Action Button for Capture -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/capture_button"
