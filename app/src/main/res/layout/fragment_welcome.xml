@@ -8,35 +8,34 @@
 
     <ImageView
         android:id="@+id/logo"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="150dp"
-        android:src="@drawable/logo"
-        android:contentDescription="App Logo"
-        android:layout_marginBottom="24dp" />
+        android:layout_marginBottom="24dp"
+        android:adjustViewBounds="true"
+        android:contentDescription="@string/app_logo"
+        android:src="@drawable/logo" />
 
     <com.google.android.material.textview.MaterialTextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Welcome to LingoFlow"
-        android:textSize="24sp"
-        android:textStyle="bold"
+        android:layout_marginBottom="24dp"
         android:gravity="center"
-        android:layout_marginBottom="24dp" />
+        android:text="@string/welcome_to_lingoflow"
+        android:textSize="24sp"
+        android:textStyle="bold" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_auto_read"
         style="@style/Widget.MaterialComponents.Button"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
-        android:text="Auto Read Mode"
-        
-        android:layout_marginBottom="10dp"/>
+        android:layout_marginBottom="10dp"
+        android:text="@string/auto_read_mode" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/button_point_to_read"
         style="@style/Widget.MaterialComponents.Button"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
-        android:text="Point to Read Mode"
-        />
+        android:text="@string/point_to_read_mode" />
 </LinearLayout>

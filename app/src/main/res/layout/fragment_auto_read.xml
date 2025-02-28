@@ -26,7 +26,7 @@
         android:src="@drawable/ic_camera"
         app:fabSize="normal"
         app:tint="@android:color/white"
-        android:contentDescription="Capture image"
+        android:contentDescription="@string/capture_image"
         app:layout_anchor="@id/bottom_sheet"
         app:layout_anchorGravity="top|end"/>
 
@@ -50,7 +50,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Recognized Text"
+                android:text="@string/recognized_text"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:gravity="center"
@@ -63,7 +63,7 @@
                 android:textSize="16sp"
                 android:minHeight="120dp"
                 android:layout_marginBottom="16dp"
-                android:hint="Captured text will appear here"/>
+                android:hint="@string/captured_text_will_appear_here"/>
 
             <!-- Button Row for TTS Controls -->
             <LinearLayout
@@ -77,22 +77,22 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Restart"
-                    android:layout_marginEnd="8dp"/>
+                    android:text="@string/restart"
+                    android:layout_marginEnd="8dp" />
 
                 <Button
                     android:id="@+id/stop_tts_button"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Stop"
+                    android:text="@string/stop"
                     android:layout_marginStart="8dp"/>
             </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Pitch"
+                android:text="@string/pitch"
                 android:textSize="14sp"/>
 
             <SeekBar
@@ -106,7 +106,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Speed"
+                android:text="@string/speed"
                 android:textSize="14sp"/>
 
             <SeekBar

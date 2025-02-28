@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="point_to_read_mode">Point to Read Mode</string>
+    <string name="auto_read_mode">Auto Read Mode</string>
+    <string name="welcome_to_lingoflow">Welcome to LingoFlow</string>
+    <string name="app_logo">App Logo</string>
+    <string name="capture_image">Capture image</string>
+    <string name="recognized_text">Recognized Text</string>
+    <string name="captured_text_will_appear_here">Captured text will appear here</string>
+    <string name="restart">Restart</string>
+    <string name="stop">Stop</string>
+    <string name="speed">Speed</string>
+    <string name="pitch">Pitch</string>
+</resources>
