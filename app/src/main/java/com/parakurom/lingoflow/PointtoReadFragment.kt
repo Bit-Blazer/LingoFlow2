@@ -73,7 +73,9 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
     private var middleFingerPosition: Pair<Float, Float>? = null
     private val FINGER_REGION_WIDTH = 300 // Width of OCR region in pixels
     private val FINGER_REGION_HEIGHT = 150 // Height of OCR region in pixels
-    private val VERTICAL_OFFSET = 150 // How far above the finger to place the region
+    private val VERTICAL_OFFSET = 0 // How far above   finger to place the region
+    private var middleFingerDepth: Float = 0f  // Initialize depth to 0
+
 
     override fun onResume() {
         super.onResume()
@@ -380,15 +382,21 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         val viewToImageScaleX = imageWidth.toFloat() / viewFinder.width
         val viewToImageScaleY = imageHeight.toFloat() / viewFinder.height
 
-        // Calculate finger position in image coordinates
+        //Calculate finger position in image coordinates
         val fingerX = (fingerPosition.first * viewToImageScaleX).toInt()
         val fingerY = (fingerPosition.second * viewToImageScaleY).toInt()
 
-        // Create rectangle above the finger
-        val left = (fingerX - FINGER_REGION_WIDTH / 2).coerceIn(0, imageWidth)
-        val top = (fingerY - VERTICAL_OFFSET - FINGER_REGION_HEIGHT).coerceIn(0, imageHeight)
-        val right = (left + FINGER_REGION_WIDTH).coerceIn(0, imageWidth)
-        val bottom = (top + FINGER_REGION_HEIGHT).coerceIn(0, imageHeight)
+        // Apply z-depth scaling factor for better accuracy
+        // Closer objects appear larger, so we adjust the ROI size based on z-depth
+        val zDepthScaleFactor = 1.0f + (1.0f - fingerPosition.first) * 0.5f
+        val scaledWidth = (FINGER_REGION_WIDTH * zDepthScaleFactor).toInt()
+        val scaledHeight = (FINGER_REGION_HEIGHT * zDepthScaleFactor).toInt()
+
+        // Create rectangle directly above the finger
+        val left = (fingerX - scaledWidth / 2).coerceIn(0, imageWidth)
+        val top = (fingerY - VERTICAL_OFFSET - scaledHeight).coerceIn(0, imageHeight)
+        val right = (left + scaledWidth).coerceIn(0, imageWidth)
+        val bottom = (top + scaledHeight).coerceIn(0, imageHeight)
 
         return Rect(left, top, right, bottom)
     }
@@ -428,11 +436,14 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
                 // Get middle finger landmark (index 12)
                 val middleFinger = landmarks[0][12]
 
-                // Convert normalized coordinates to view coordinates
+                // Convert normalized coordinates to view coordinates and include z-depth
                 middleFingerPosition = Pair(
                     middleFinger.x() * viewFinder.width,
                     middleFinger.y() * viewFinder.height
                 )
+
+                middleFingerDepth = middleFinger.z()  // Store z-depth separately
+
 
                 // Update overlay to show tracking point
                 overlay.setFingerPosition(middleFingerPosition)
@@ -451,11 +462,11 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
                 val topGesture = gestureCategories.first().first().categoryName()
 
                 when (topGesture) {
-                    "pointing_up", "two_up_inverted" -> {
+                    "two_up_inverted" -> {
                         lastGestureDetectionTime = currentTime
                         startOcrProcess()
                     }
-                    "stop_inverted", "closed_fist" -> {
+                    "stop_inverted" -> {
                         lastGestureDetectionTime = currentTime
                         stopOcrProcess()
                     }

@@ -9,6 +9,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.camera.core.ImageProxy
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.tasks.components.processors.ClassifierOptions
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -46,18 +47,23 @@ class GestureRecognizerHelper(
         baseOptionBuilder.setModelAssetPath("gesture_recognizer_custom.task")
 
         try {
-            val baseOptions = baseOptionBuilder.build()
-            val optionsBuilder =
-                    GestureRecognizer.GestureRecognizerOptions.builder()
-                            .setBaseOptions(baseOptions)
-                            .setRunningMode(RunningMode.LIVE_STREAM)
+                val baseOptions = baseOptionBuilder.build()
+                val optionsBuilder =
+                        GestureRecognizer.GestureRecognizerOptions.builder()
+                                .setBaseOptions(baseOptions)
+                                .setRunningMode(RunningMode.LIVE_STREAM)
 
-            optionsBuilder
-                    .setResultListener(this::returnLivestreamResult)
-                    .setErrorListener(this::returnLivestreamError)
+            // Set custom gesture classifier options
+            val customOptions = ClassifierOptions.builder()
+               .setScoreThreshold(0.8f) // Only accept results with score above 0.5
+              .build()
 
-            val options = optionsBuilder.build()
-            gestureRecognizer = GestureRecognizer.createFromOptions(context, options)
+            optionsBuilder.setCustomGesturesClassifierOptions(customOptions)
+                        .setResultListener(this::returnLivestreamResult)
+                        .setErrorListener(this::returnLivestreamError)
+
+                val options = optionsBuilder.build()
+                gestureRecognizer = GestureRecognizer.createFromOptions(context, options)
         } catch (e: IllegalStateException) {
             gestureRecognizerListener?.onError(
                     "Gesture recognizer failed to initialize. See error logs for details"
@@ -147,6 +153,7 @@ class GestureRecognizerHelper(
     )
 
     interface GestureRecognizerListener {
+
         fun onError(error: String)
         fun onResults(resultBundle: ResultBundle)
     }

@@ -68,27 +68,24 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
 
         // Draw middle finger position and OCR region
         fingerPosition?.let { (x, y) ->
-            // Scale to view coordinates
-            val viewX = x * canvas.width / imageWidth
-            val viewY = y * canvas.height / imageHeight
-
-            // Draw circle at finger position
+            // Draw circle at finger position - using the exact coordinates passed from fragment
             pointPaint.style = Paint.Style.FILL
-            canvas.drawCircle(viewX, viewY, 20f, pointPaint)
+            canvas.drawCircle(x, y, 20f, pointPaint)
 
             // Draw OCR region above finger
             ocrRegion?.let { region ->
-                val scaledLeft = region.left * canvas.width / imageWidth
-                val scaledTop = region.top * canvas.height / imageHeight
-                val scaledRight = region.right * canvas.width / imageWidth
-                val scaledBottom = region.bottom * canvas.height / imageHeight
+                // Draw rectangle using the exact OCR region coordinates
+                val scaledLeft = region.left * width.toFloat() / imageWidth
+                val scaledTop = region.top * height.toFloat() / imageHeight
+                val scaledRight = region.right * width.toFloat() / imageWidth
+                val scaledBottom = region.bottom * height.toFloat() / imageHeight
 
                 ocrRegionPaint.style = Paint.Style.STROKE
                 canvas.drawRect(
-                    scaledLeft.toFloat(),
-                    scaledTop.toFloat(),
-                    scaledRight.toFloat(),
-                    scaledBottom.toFloat(),
+                    scaledLeft,
+                    scaledTop,
+                    scaledRight,
+                    scaledBottom,
                     ocrRegionPaint
                 )
 
@@ -96,10 +93,10 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
                 ocrRegionPaint.style = Paint.Style.FILL
                 ocrRegionPaint.color = Color.argb(40, 0, 255, 0)
                 canvas.drawRect(
-                    scaledLeft.toFloat(),
-                    scaledTop.toFloat(),
-                    scaledRight.toFloat(),
-                    scaledBottom.toFloat(),
+                    scaledLeft,
+                    scaledTop,
+                    scaledRight,
+                    scaledBottom,
                     ocrRegionPaint
                 )
                 ocrRegionPaint.color = Color.GREEN
@@ -123,8 +120,8 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
                 if (false) { // Disabled for now, but can be enabled if needed
                     landmark.forEach { normalizedLandmark ->
                         canvas.drawPoint(
-                            normalizedLandmark.x() * imageWidth * scaleFactor,
-                            normalizedLandmark.y() * imageHeight * scaleFactor,
+                            normalizedLandmark.x() * canvas.width,
+                            normalizedLandmark.y() * canvas.height,
                             pointPaint
                         )
                     }
@@ -133,10 +130,10 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
                         val start = landmark[connection!!.start()]
                         val end = landmark[connection.end()]
                         canvas.drawLine(
-                            start.x() * imageWidth * scaleFactor,
-                            start.y() * imageHeight * scaleFactor,
-                            end.x() * imageWidth * scaleFactor,
-                            end.y() * imageHeight * scaleFactor,
+                            start.x() * canvas.width,
+                            start.y() * canvas.height,
+                            end.x() * canvas.width,
+                            end.y() * canvas.height,
                             linePaint
                         )
                     }
@@ -145,8 +142,8 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
                 // Get middle fingertip position (Landmark Index 12)
                 if (landmark.size > 12) {
                     val middleFingertip = landmark[12]
-                    val x = middleFingertip.x() * imageWidth * scaleFactor
-                    val y = middleFingertip.y() * imageHeight * scaleFactor
+                    val x = middleFingertip.x() * canvas.width
+                    val y = middleFingertip.y() * canvas.height
 
                     // Add new position to trail list
                     middleFingerTrail.addFirst(x to y)
@@ -191,8 +188,6 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         fingerPosition = position
         invalidate()
     }
-
-
 
     fun setDetectedText(text: String?) {
         detectedText = text
