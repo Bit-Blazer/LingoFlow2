@@ -13,6 +13,7 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -44,6 +45,7 @@ class AutoReadFragment : Fragment() {
     private var textToSpeech: TextToSpeech? = null
     private var lastRecognizedText: String = ""
     private var isSpeaking: Boolean = false
+    private lateinit var customTypeface: Typeface
 
     // Image processing variables
     private var capturedBitmap: Bitmap? = null
@@ -70,6 +72,16 @@ class AutoReadFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Load custom font from assets
+        try {
+            customTypeface = Typeface.createFromAsset(requireContext().assets, "Dysfont.ttf")
+            // Apply the custom font to the recognized text view
+            recognizedTextView.typeface = customTypeface
+        } catch (e: Exception) {
+            Log.e("AutoReadFragment", "Error loading custom font", e)
+            Toast.makeText(requireContext(), "Failed to load custom font", Toast.LENGTH_SHORT).show()
+        }
 
         // Initialize bottom sheet behavior
         bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet)
@@ -264,6 +276,8 @@ class AutoReadFragment : Fragment() {
 
             if (lastRecognizedText.isNotEmpty()) {
                 recognizedTextView.text = lastRecognizedText
+                // Ensure the custom font is applied (in case it was reset)
+                recognizedTextView.typeface = customTypeface
 
                 // Expand bottom sheet to show the text
                 bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
