@@ -2,8 +2,14 @@ package com.parakurom.lingoflow
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.Matrix
 import android.graphics.Rect
+import android.graphics.YuvImage
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -29,6 +35,9 @@ import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -57,6 +66,13 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
     private var lastGestureDetectionTime = 0L
     private val GESTURE_COOLDOWN_MS = 1000 // 1 second cooldown between gesture detections
 
+    // TTS variables
+    private lateinit var textToSpeech: TextToSpeech
+    private var isTtsInitialized = false
+    private var lastReadText = ""
+    private var lastOcrTime = 0L
+    private val OCR_COOLDOWN_MS = 600 // Cooldown between text readings to prevent rapid repeating
+
     // ROI variables
     private lateinit var roiView: RegionOfInterestView
     private var useRoi = false // Flag to determine if we should use ROI or process the entire image
@@ -71,11 +87,14 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
 
     // Add these variables for finger tracking
     private var middleFingerPosition: Pair<Float, Float>? = null
-    private val FINGER_REGION_WIDTH = 300 // Width of OCR region in pixels
-    private val FINGER_REGION_HEIGHT = 150 // Height of OCR region in pixels
-    private val VERTICAL_OFFSET = 0 // How far above   finger to place the region
+    // Adjust region dimensions for better text recognition
+    private val FINGER_REGION_WIDTH = 300 // Width of OCR region in pixels (increased for better text capture)
+    private val FINGER_REGION_HEIGHT = 75// Height of OCR region in pixels (increased for better text capture)
+    private val VERTICAL_OFFSET = 50 // How far above finger to place the region
     private var middleFingerDepth: Float = 0f  // Initialize depth to 0
 
+    // Add a processing lock to prevent overlapping OCR operations
+    private var isProcessingOcr = false
 
     override fun onResume() {
         super.onResume()
@@ -119,6 +138,12 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         if (::textRecognizer.isInitialized) {
             textRecognizer.close()
         }
+
+        // Shutdown TTS
+        if (::textToSpeech.isInitialized && isTtsInitialized) {
+            textToSpeech.stop()
+            textToSpeech.shutdown()
+        }
     }
 
     override fun onCreateView(
@@ -148,6 +173,9 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         // Initialize the TextRecognizer
         textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
+        // Initialize Text-to-Speech
+        initializeTextToSpeech()
+
         // Wait for the views to be properly laid out
         viewFinder.post {
             // Set up the camera and its use cases
@@ -170,6 +198,62 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         // Set up toggle ROI button
         toggleRoiButton.setOnClickListener {
             toggleRoi()
+        }
+    }
+
+    // Initialize the Text-to-Speech engine
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(requireContext()) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                // Set language to default device language
+                val result = textToSpeech.setLanguage(Locale.getDefault())
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e(TAG, "TTS language not supported")
+                    Toast.makeText(requireContext(), "TTS language not supported", Toast.LENGTH_SHORT).show()
+                } else {
+                    isTtsInitialized = true
+                    Log.d(TAG, "TTS initialized successfully")
+                    // Confirm TTS initialization with a toast
+                    Toast.makeText(requireContext(), "Text-to-Speech ready", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Log.e(TAG, "TTS initialization failed")
+                Toast.makeText(requireContext(), "TTS initialization failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+        // Set speech rate and pitch
+        textToSpeech.setSpeechRate(0.9f) // Slightly slower for better clarity
+        textToSpeech.setPitch(1.0f)
+    }
+
+    // Speak the given text using TTS with error handling
+    private fun speakText(text: String) {
+        if (!isTtsInitialized) {
+            Log.e(TAG, "TTS not initialized, cannot speak")
+            return
+        }
+
+        if (text.isBlank()) {
+            Log.d(TAG, "Empty text, nothing to speak")
+            return
+        }
+
+        try {
+            // Only speak if the text is different from the last one or enough time has passed
+            val currentTime = System.currentTimeMillis()
+            if (text != lastReadText || currentTime - lastOcrTime > OCR_COOLDOWN_MS) {
+                lastReadText = text
+                lastOcrTime = currentTime
+
+                // Check TTS status before speaking
+                if (textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tts1") == TextToSpeech.ERROR) {
+                    Log.e(TAG, "Error speaking text")
+                } else {
+                    Log.d(TAG, "Speaking text: $text")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception while speaking text: ${e.message}")
         }
     }
 
@@ -242,7 +326,7 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
             .build()
             .also {
                 it.setAnalyzer(backgroundExecutor) { image ->
-                    if (isOcrRunning) {
+                    if (isOcrRunning && !isProcessingOcr) {
                         processTextRecognition(image)
                     } else {
                         image.close()
@@ -276,59 +360,185 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         )
     }
 
-    // Process text recognition on just the ROI
-    private fun processRoiTextRecognition(inputImage: InputImage, roi: Rect, imageProxy: ImageProxy) {
+    // Improved image to bitmap conversion with proper rotation handling
+    private fun imageToBitmap(imageProxy: ImageProxy): Bitmap? {
+        val image = imageProxy.image ?: return null
+
         try {
-            // Create a cropped image using the ROI coordinates
-            val croppedImage = InputImage.fromBitmap(
-                android.graphics.Bitmap.createBitmap(
-                    inputImage.bitmapInternal!!,
-                    roi.left.coerceIn(0, inputImage.width - 1),
-                    roi.top.coerceIn(0, inputImage.height - 1),
-                    roi.width().coerceIn(1, inputImage.width - roi.left),
-                    roi.height().coerceIn(1, inputImage.height - roi.top)
-                ),
-                0
+            // For RGBA_8888 format directly
+            if (imageProxy.format == ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888) {
+                val byteBuffer = imageProxy.planes[0].buffer
+                val bytes = ByteArray(byteBuffer.remaining())
+                byteBuffer.get(bytes)
+
+                val bitmap = Bitmap.createBitmap(
+                    imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
+                )
+                bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(bytes))
+
+                // Apply rotation if needed
+                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                if (rotationDegrees != 0) {
+                    val matrix = Matrix()
+                    matrix.postRotate(rotationDegrees.toFloat())
+                    return Bitmap.createBitmap(
+                        bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                    )
+                }
+                return bitmap
+            }
+            // When using YUV_420_888 format
+            else if (image.format == ImageFormat.YUV_420_888) {
+                val planes = image.planes
+                val yBuffer = planes[0].buffer
+                val uBuffer = planes[1].buffer
+                val vBuffer = planes[2].buffer
+
+                val ySize = yBuffer.remaining()
+                val uSize = uBuffer.remaining()
+                val vSize = vBuffer.remaining()
+
+                val nv21 = ByteArray(ySize + uSize + vSize)
+
+                // Copy Y plane
+                yBuffer.get(nv21, 0, ySize)
+
+                // Copy VU data
+                vBuffer.get(nv21, ySize, vSize)
+                uBuffer.get(nv21, ySize + vSize, uSize)
+
+                val yuvImage = YuvImage(
+                    nv21,
+                    ImageFormat.NV21,
+                    image.width,
+                    image.height,
+                    null
+                )
+
+                val out = ByteArrayOutputStream()
+                yuvImage.compressToJpeg(
+                    Rect(0, 0, image.width, image.height),
+                    100,
+                    out
+                )
+
+                val imageBytes = out.toByteArray()
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+
+                // Apply rotation if needed
+                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                if (rotationDegrees != 0) {
+                    val matrix = Matrix()
+                    matrix.postRotate(rotationDegrees.toFloat())
+                    return Bitmap.createBitmap(
+                        bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                    )
+                }
+                return bitmap
+            }
+            // For JPEG format
+            else if (image.format == ImageFormat.JPEG) {
+                val buffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.capacity())
+                buffer.get(bytes)
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+                // Apply rotation if needed
+                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                if (rotationDegrees != 0) {
+                    val matrix = Matrix()
+                    matrix.postRotate(rotationDegrees.toFloat())
+                    return Bitmap.createBitmap(
+                        bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                    )
+                }
+                return bitmap
+            }
+            return null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error converting image to bitmap: ${e.message}")
+            return null
+        }
+    }
+
+    // Direct OCR on region of bitmap with improved error handling
+    private fun processRoiTextRecognition(imageProxy: ImageProxy, roi: Rect) {
+        if (isProcessingOcr) {
+            imageProxy.close()
+            return
+        }
+
+        isProcessingOcr = true
+
+        val bitmap = imageToBitmap(imageProxy)
+        if (bitmap == null) {
+            Log.e(TAG, "Failed to get bitmap from image")
+            imageProxy.close()
+            isProcessingOcr = false
+            return
+        }
+
+        try {
+            // Ensure roi is within bitmap bounds
+            val roiLeft = roi.left.coerceIn(0, bitmap.width - 1)
+            val roiTop = roi.top.coerceIn(0, bitmap.height - 1)
+            val roiWidth = roi.width().coerceIn(1, bitmap.width - roiLeft)
+            val roiHeight = roi.height().coerceIn(1, bitmap.height - roiTop)
+
+            if (roiWidth <= 1 || roiHeight <= 1) {
+                Log.e(TAG, "ROI dimensions too small: ${roiWidth}x${roiHeight}")
+                bitmap.recycle()
+                imageProxy.close()
+                isProcessingOcr = false
+                return
+            }
+
+            // Create cropped bitmap
+            val croppedBitmap = Bitmap.createBitmap(
+                bitmap,
+                roiLeft,
+                roiTop,
+                roiWidth,
+                roiHeight
             )
 
-            // Process the cropped image
-            textRecognizer.process(croppedImage)
+            // Process the cropped bitmap
+            val inputImage = InputImage.fromBitmap(croppedBitmap, 0)
+
+            textRecognizer.process(inputImage)
                 .addOnSuccessListener { text ->
                     displayRecognizedText(text)
+                    // Recycle bitmaps to avoid memory leaks
+                    croppedBitmap.recycle()
+                    bitmap.recycle()
                 }
                 .addOnFailureListener { e ->
                     Log.e(TAG, "ROI text recognition failed: ${e.message}", e)
+                    croppedBitmap.recycle()
+                    bitmap.recycle()
                 }
                 .addOnCompleteListener {
-                    // Important to close the image to avoid memory leaks
                     imageProxy.close()
+                    isProcessingOcr = false
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "Error cropping image for ROI: ${e.message}", e)
+            Log.e(TAG, "Error processing ROI: ${e.message}", e)
+            bitmap.recycle()
             imageProxy.close()
+            isProcessingOcr = false
         }
     }
 
-    // Start OCR processing
+    // Start OCR processing with visual feedback
     private fun startOcrProcess() {
         if (!isOcrRunning) {
             isOcrRunning = true
-            Toast.makeText(requireContext(), "OCR Started", Toast.LENGTH_SHORT).show()
-            Log.d(TAG, "OCR process started")
-        }
-    }
-
-    // Stop OCR processing
-    private fun stopOcrProcess() {
-        if (isOcrRunning) {
-            isOcrRunning = false
-            // Clear the displayed text
             activity?.runOnUiThread {
-                recognizedTextView.text = ""
-                overlay.setDetectedText(null)
+                recognizedTextView.visibility = View.VISIBLE
+                recognizedTextView.text = "Reading mode active..."
             }
-            Toast.makeText(requireContext(), "OCR Stopped", Toast.LENGTH_SHORT).show()
-            Log.d(TAG, "OCR process stopped")
+            Toast.makeText(requireContext(), "Reading Mode Started", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "OCR and TTS process started")
         }
     }
 
@@ -338,41 +548,144 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         ocrAnalyzer?.targetRotation = viewFinder.display.rotation
     }
 
-    // Process text recognition based on middle finger position
+    // Add these properties to your class
+    private var lastProcessedRoi: Rect? = null
+    private var lastRecognizedTextTime: Long = 0
+    private val TTS_COOLDOWN_MS = 3000 // 3 seconds between readings of the same region
+    private val ROI_CHANGE_THRESHOLD = 100 // Pixel distance needed to consider a new ROI
+
+    // Modify the processTextRecognition method with cooldown logic
     private fun processTextRecognition(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage != null) {
-            val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        if (!isOcrRunning || middleFingerPosition == null) {
+            imageProxy.close()
+            return
+        }
 
-            // Check if middle finger is detected and OCR is running
-            if (isOcrRunning && middleFingerPosition != null) {
-                // Calculate region above the middle finger
-                val fingerPosition = middleFingerPosition!!
+        try {
+            // Calculate region above the middle finger
+            val fingerPosition = middleFingerPosition!!
 
-                // Create ROI rectangle above the finger
-                val roi = calculateFingerROI(
-                    fingerPosition,
-                    inputImage.width,
-                    inputImage.height
-                )
+            // Get media image
+            val mediaImage = imageProxy.image
+            if (mediaImage == null) {
+                imageProxy.close()
+                return
+            }
 
-                // Process the ROI for text recognition
-                processRoiTextRecognition(inputImage, roi, imageProxy)
+            // Calculate ROI rectangle above the finger
+            val roi = calculateFingerROI(
+                fingerPosition,
+                imageProxy.width,
+                imageProxy.height
+            )
 
-                // Visualize the ROI on overlay
-                activity?.runOnUiThread {
-                    overlay.ocrRegion=roi
-                }
+            // Check if we need to process this ROI or if we're still in cooldown period
+            val currentTime = System.currentTimeMillis()
+            val shouldProcessNewRoi = when {
+                // First ROI, always process
+                lastProcessedRoi == null -> true
+
+                // Check if enough time has passed since last text recognition
+                (currentTime - lastRecognizedTextTime > TTS_COOLDOWN_MS) -> true
+
+                // Check if ROI has moved significantly (user pointing at different text)
+                roiDistanceExceedsThreshold(roi, lastProcessedRoi!!) -> true
+
+                // Otherwise, skip processing to avoid repeated readings
+                else -> false
+            }
+
+            if (shouldProcessNewRoi && !isProcessingOcr) {
+                // Process the ROI for text recognition directly
+                processRoiTextRecognition(imageProxy, roi)
+                lastProcessedRoi = roi
             } else {
-                // If no finger detected or OCR not running, just close the image
                 imageProxy.close()
             }
-        } else {
+
+            // Always visualize the ROI on overlay
+            activity?.runOnUiThread {
+                overlay.ocrRegion = roi
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in processTextRecognition: ${e.message}", e)
             imageProxy.close()
+            isProcessingOcr = false
         }
     }
 
-    // Calculate ROI based on finger position
+    // Calculate if two ROIs are significantly different
+    private fun roiDistanceExceedsThreshold(roi1: Rect, roi2: Rect): Boolean {
+        val centerX1 = roi1.left + roi1.width() / 2
+        val centerY1 = roi1.top + roi1.height() / 2
+        val centerX2 = roi2.left + roi2.width() / 2
+        val centerY2 = roi2.top + roi2.height() / 2
+
+        val distance = Math.sqrt(
+            Math.pow((centerX2 - centerX1).toDouble(), 2.0) +
+                    Math.pow((centerY2 - centerY1).toDouble(), 2.0)
+        )
+
+        return distance > ROI_CHANGE_THRESHOLD
+    }
+
+    // Modify the displayRecognizedText method to update the last recognition time
+    private fun displayRecognizedText(text: Text) {
+        if (!isAdded) return
+
+        val recognizedText = text.text.trim()
+
+        // Update the timestamp when text is successfully recognized
+        lastRecognizedTextTime = System.currentTimeMillis()
+
+        activity?.runOnUiThread {
+            if (recognizedText.isNotEmpty()) {
+                // Update UI with recognized text
+                Log.d(TAG, "Recognized text: $recognizedText")
+
+                // Update the TextView with better visibility
+                recognizedTextView.text = recognizedText
+                recognizedTextView.visibility = View.VISIBLE
+
+                // Make text larger or more prominent if needed
+                recognizedTextView.textSize = 18f
+
+                // Also update the overlay to display text in the OCR region
+                overlay.setDetectedText(recognizedText)
+
+                // Speak the recognized text
+                speakText(recognizedText)
+            } else {
+                // For empty results, show a searching message
+                recognizedTextView.text = "Searching for text..."
+            }
+        }
+    }
+
+    // When stopping the OCR process, reset the cooldown variables
+    private fun stopOcrProcess() {
+        if (isOcrRunning) {
+            isOcrRunning = false
+            // Reset cooldown tracking variables
+            lastProcessedRoi = null
+            lastRecognizedTextTime = 0
+
+            // Clear the displayed text
+            activity?.runOnUiThread {
+                recognizedTextView.text = ""
+                recognizedTextView.visibility = View.GONE
+                overlay.setDetectedText(null)
+                overlay.ocrRegion = null
+            }
+            // Stop any ongoing speech
+            if (isTtsInitialized) {
+                textToSpeech.stop()
+            }
+            Toast.makeText(requireContext(), "Reading Mode Stopped", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "OCR and TTS process stopped")
+        }
+    }
+     // Calculate ROI based on finger position with improved sizing and positioning
     private fun calculateFingerROI(
         fingerPosition: Pair<Float, Float>,
         imageWidth: Int,
@@ -382,41 +695,27 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
         val viewToImageScaleX = imageWidth.toFloat() / viewFinder.width
         val viewToImageScaleY = imageHeight.toFloat() / viewFinder.height
 
-        //Calculate finger position in image coordinates
+        // Calculate finger position in image coordinates
         val fingerX = (fingerPosition.first * viewToImageScaleX).toInt()
         val fingerY = (fingerPosition.second * viewToImageScaleY).toInt()
 
-        // Apply z-depth scaling factor for better accuracy
-        // Closer objects appear larger, so we adjust the ROI size based on z-depth
-        val zDepthScaleFactor = 1.0f + (1.0f - fingerPosition.first) * 0.5f
+        // Apply depth-based scaling - deeper fingers (farther from camera) need larger regions
+        val zDepthScaleFactor = 1.0f
         val scaledWidth = (FINGER_REGION_WIDTH * zDepthScaleFactor).toInt()
         val scaledHeight = (FINGER_REGION_HEIGHT * zDepthScaleFactor).toInt()
 
-        // Create rectangle directly above the finger
-        val left = (fingerX - scaledWidth / 2).coerceIn(0, imageWidth)
-        val top = (fingerY - VERTICAL_OFFSET - scaledHeight).coerceIn(0, imageHeight)
-        val right = (left + scaledWidth).coerceIn(0, imageWidth)
-        val bottom = (top + scaledHeight).coerceIn(0, imageHeight)
+        // Place the top-left corner of the box directly at the finger position
+        // This makes the box start exactly where the finger is pointing
+        val left = fingerX.coerceIn(0, imageWidth - FINGER_REGION_WIDTH)
+        val top = fingerY.coerceIn(0, imageHeight - FINGER_REGION_HEIGHT)
+
+        // Calculate right and bottom based on the scaled dimensions
+        val right = (left + scaledWidth).coerceAtMost(imageWidth)
+        val bottom = (top + scaledHeight).coerceAtMost(imageHeight)
 
         return Rect(left, top, right, bottom)
     }
-
-    // Display the recognized text
-    private fun displayRecognizedText(text: Text) {
-        activity?.runOnUiThread {
-            if (text.text.isNotEmpty()) {
-                // Update UI with recognized text
-                Log.d(TAG, "Recognized text: ${text.text}")
-
-                // Update the TextView
-                recognizedTextView.text = text.text
-                recognizedTextView.visibility = View.VISIBLE
-
-                // Also update the overlay to display text in the OCR region
-                overlay.setDetectedText(text.text)
-            }
-        }
-    }
+    // Display the recognized text and speak it with improved visibility
 
     // Update the onResults method to extract middle finger position and handle gestures
     override fun onResults(resultBundle: GestureRecognizerHelper.ResultBundle) {
@@ -436,21 +735,24 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
                 // Get middle finger landmark (index 12)
                 val middleFinger = landmarks[0][12]
 
-                // Convert normalized coordinates to view coordinates and include z-depth
+                // Convert normalized coordinates to view coordinates
                 middleFingerPosition = Pair(
                     middleFinger.x() * viewFinder.width,
                     middleFinger.y() * viewFinder.height
                 )
 
-                middleFingerDepth = middleFinger.z()  // Store z-depth separately
-
+                // Store z-depth for scaling calculations
+                middleFingerDepth = middleFinger.z()
 
                 // Update overlay to show tracking point
                 overlay.setFingerPosition(middleFingerPosition)
+
+                // Log the finger position for debugging
+                Log.d(TAG, "Middle finger at: ${middleFingerPosition?.first}, ${middleFingerPosition?.second}, depth: $middleFingerDepth")
             } else {
                 middleFingerPosition = null
                 overlay.setFingerPosition(null)
-                overlay.ocrRegion=null
+                overlay.ocrRegion = null
             }
 
             // Handle gesture detection with throttling
@@ -460,15 +762,21 @@ class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognize
                 currentTime - lastGestureDetectionTime > GESTURE_COOLDOWN_MS) {
 
                 val topGesture = gestureCategories.first().first().categoryName()
+                val score = gestureCategories.first().first().score()
 
-                when (topGesture) {
-                    "two_up_inverted" -> {
-                        lastGestureDetectionTime = currentTime
-                        startOcrProcess()
-                    }
-                    "stop_inverted" -> {
-                        lastGestureDetectionTime = currentTime
-                        stopOcrProcess()
+                // Only consider gestures with reasonable confidence
+                if (score > 0.6) {
+                    Log.d(TAG, "Detected gesture: $topGesture with score $score")
+
+                    when (topGesture) {
+                        "two_up_inverted", "peace", "thumbs_up" -> {
+                            lastGestureDetectionTime = currentTime
+                            startOcrProcess()
+                        }
+                        "stop_inverted", "closed_fist", "thumbs_down" -> {
+                            lastGestureDetectionTime = currentTime
+                            stopOcrProcess()
+                        }
                     }
                 }
             }

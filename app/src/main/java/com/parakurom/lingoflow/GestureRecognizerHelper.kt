@@ -20,6 +20,7 @@ class GestureRecognizerHelper(
     val context: Context,
     val gestureRecognizerListener: GestureRecognizerListener? = null
 ) {
+    var results: List<GestureRecognizerResult>? = null
 
     // For this example this needs to be a var so it can be reset on changes. If the
     // GestureRecognizer will not change, a lazy val would be preferable.
@@ -55,7 +56,7 @@ class GestureRecognizerHelper(
 
             // Set custom gesture classifier options
             val customOptions = ClassifierOptions.builder()
-               .setScoreThreshold(0.8f) // Only accept results with score above 0.5
+               .setScoreThreshold(0.5f) // Only accept results with score above 0.5
               .build()
 
             optionsBuilder.setCustomGesturesClassifierOptions(customOptions)
