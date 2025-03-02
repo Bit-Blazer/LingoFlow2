@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
@@ -32,7 +33,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerListener {
+class PointtoReadFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerListener {
 
     companion object {
         private const val TAG = "Hand gesture recognizer"
@@ -45,6 +46,7 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
     }
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
+    private var ocrAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var cameraFacing = CameraSelector.LENS_FACING_BACK
@@ -65,6 +67,13 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
     private lateinit var viewFinder: PreviewView
     private lateinit var overlay: OverlayView
     private lateinit var toggleRoiButton: Button
+    private lateinit var recognizedTextView: TextView
+
+    // Add these variables for finger tracking
+    private var middleFingerPosition: Pair<Float, Float>? = null
+    private val FINGER_REGION_WIDTH = 300 // Width of OCR region in pixels
+    private val FINGER_REGION_HEIGHT = 150 // Height of OCR region in pixels
+    private val VERTICAL_OFFSET = 150 // How far above the finger to place the region
 
     override fun onResume() {
         super.onResume()
@@ -121,6 +130,7 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
         overlay = view.findViewById(R.id.overlay)
         roiView = view.findViewById(R.id.roi_view)
         toggleRoiButton = view.findViewById(R.id.toggle_roi_button)
+        recognizedTextView = view.findViewById(R.id.recognized_text)
         return view
     }
 
@@ -172,7 +182,7 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
         } else {
             roiView.visibility = View.GONE
             toggleRoiButton.text = "Enable ROI"
-            Toast.makeText(requireContext(), "Processing full image", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Processing finger region", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -208,7 +218,7 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
                 .setTargetRotation(viewFinder.display.rotation)
                 .build()
 
-        // ImageAnalysis. Using RGBA 8888 to match how our models work
+        // ImageAnalysis for hand gesture recognition
         imageAnalyzer =
             ImageAnalysis.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
@@ -216,16 +226,17 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build()
-                // The analyzer can then be assigned to the instance
                 .also {
                     it.setAnalyzer(backgroundExecutor) { image ->
                         recognizeHand(image)
                     }
                 }
 
-
-        val ocrAnalyzer = ImageAnalysis.Builder()
-            // configuration...
+        // Separate ImageAnalysis for OCR processing
+        ocrAnalyzer = ImageAnalysis.Builder()
+            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+            .setTargetRotation(viewFinder.display.rotation)
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also {
                 it.setAnalyzer(backgroundExecutor) { image ->
@@ -241,9 +252,14 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
         cameraProvider.unbindAll()
 
         try {
-            // A variable number of use-cases can be passed here -
-            // camera provides access to CameraControl & CameraInfo
-            camera =  cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer, ocrAnalyzer)
+            // Bind all use cases to camera
+            camera = cameraProvider.bindToLifecycle(
+                this,
+                cameraSelector,
+                preview,
+                imageAnalyzer,
+                ocrAnalyzer
+            )
 
             // Attach the viewfinder's surface provider to preview use case
             preview?.setSurfaceProvider(viewFinder.surfaceProvider)
@@ -258,47 +274,6 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
         )
     }
 
-    // Process OCR on the image
-    private fun processTextRecognition(imageProxy: ImageProxy) {
-        // Get the InputImage from ImageProxy
-        val mediaImage = imageProxy.image
-        if (mediaImage != null) {
-            val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-
-            // Apply ROI if enabled
-            if (useRoi && ::roiView.isInitialized) {
-                // Get ROI in image coordinates
-                val roi = roiView.calculateROIRect(
-                    inputImage.width,
-                    inputImage.height
-                )
-
-                // Process only the region of interest
-                processRoiTextRecognition(inputImage, roi, imageProxy)
-            } else {
-                // Process the whole image
-                processFullImageTextRecognition(inputImage, imageProxy)
-            }
-        } else {
-            imageProxy.close()
-        }
-    }
-
-    // Process text recognition on the entire image
-    private fun processFullImageTextRecognition(inputImage: InputImage, imageProxy: ImageProxy) {
-        textRecognizer.process(inputImage)
-            .addOnSuccessListener { text ->
-                displayRecognizedText(text)
-            }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Text recognition failed: ${e.message}", e)
-            }
-            .addOnCompleteListener {
-                // Important to close the image to avoid memory leaks
-                imageProxy.close()
-            }
-    }
-
     // Process text recognition on just the ROI
     private fun processRoiTextRecognition(inputImage: InputImage, roi: Rect, imageProxy: ImageProxy) {
         try {
@@ -306,10 +281,10 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
             val croppedImage = InputImage.fromBitmap(
                 android.graphics.Bitmap.createBitmap(
                     inputImage.bitmapInternal!!,
-                    roi.left,
-                    roi.top,
-                    roi.width(),
-                    roi.height()
+                    roi.left.coerceIn(0, inputImage.width - 1),
+                    roi.top.coerceIn(0, inputImage.height - 1),
+                    roi.width().coerceIn(1, inputImage.width - roi.left),
+                    roi.height().coerceIn(1, inputImage.height - roi.top)
                 ),
                 0
             )
@@ -332,25 +307,6 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
         }
     }
 
-    // Display the recognized text
-    private fun displayRecognizedText(text: Text) {
-        activity?.runOnUiThread {
-            if (text.text.isNotEmpty()) {
-                // Update UI with recognized text
-                Log.d(TAG, "Recognized text: ${text.text}")
-
-                // Show a toast with the recognized text (for debugging)
-                Toast.makeText(requireContext(), "Text: ${text.text}", Toast.LENGTH_SHORT).show()
-
-                // TODO: Implement a proper UI for displaying the recognized text
-                // For example:
-                // 1. Add a TextView to your layout
-                // 2. Show a dialog with the recognized text
-                // 3. Pass the text to another fragment for further processing
-            }
-        }
-    }
-
     // Start OCR processing
     private fun startOcrProcess() {
         if (!isOcrRunning) {
@@ -364,6 +320,11 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
     private fun stopOcrProcess() {
         if (isOcrRunning) {
             isOcrRunning = false
+            // Clear the displayed text
+            activity?.runOnUiThread {
+                recognizedTextView.text = ""
+                overlay.setDetectedText(null)
+            }
             Toast.makeText(requireContext(), "OCR Stopped", Toast.LENGTH_SHORT).show()
             Log.d(TAG, "OCR process stopped")
         }
@@ -372,55 +333,141 @@ class CameraFragment : Fragment(), GestureRecognizerHelper.GestureRecognizerList
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         imageAnalyzer?.targetRotation = viewFinder.display.rotation
+        ocrAnalyzer?.targetRotation = viewFinder.display.rotation
     }
 
-    // Update UI after a hand gesture has been recognized. Implements throttling
-    // to prevent multiple triggers in quick succession.
+    // Process text recognition based on middle finger position
+    private fun processTextRecognition(imageProxy: ImageProxy) {
+        val mediaImage = imageProxy.image
+        if (mediaImage != null) {
+            val inputImage = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+
+            // Check if middle finger is detected and OCR is running
+            if (isOcrRunning && middleFingerPosition != null) {
+                // Calculate region above the middle finger
+                val fingerPosition = middleFingerPosition!!
+
+                // Create ROI rectangle above the finger
+                val roi = calculateFingerROI(
+                    fingerPosition,
+                    inputImage.width,
+                    inputImage.height
+                )
+
+                // Process the ROI for text recognition
+                processRoiTextRecognition(inputImage, roi, imageProxy)
+
+                // Visualize the ROI on overlay
+                activity?.runOnUiThread {
+                    overlay.ocrRegion=roi
+                }
+            } else {
+                // If no finger detected or OCR not running, just close the image
+                imageProxy.close()
+            }
+        } else {
+            imageProxy.close()
+        }
+    }
+
+    // Calculate ROI based on finger position
+    private fun calculateFingerROI(
+        fingerPosition: Pair<Float, Float>,
+        imageWidth: Int,
+        imageHeight: Int
+    ): Rect {
+        // Convert view coordinates to image coordinates
+        val viewToImageScaleX = imageWidth.toFloat() / viewFinder.width
+        val viewToImageScaleY = imageHeight.toFloat() / viewFinder.height
+
+        // Calculate finger position in image coordinates
+        val fingerX = (fingerPosition.first * viewToImageScaleX).toInt()
+        val fingerY = (fingerPosition.second * viewToImageScaleY).toInt()
+
+        // Create rectangle above the finger
+        val left = (fingerX - FINGER_REGION_WIDTH / 2).coerceIn(0, imageWidth)
+        val top = (fingerY - VERTICAL_OFFSET - FINGER_REGION_HEIGHT).coerceIn(0, imageHeight)
+        val right = (left + FINGER_REGION_WIDTH).coerceIn(0, imageWidth)
+        val bottom = (top + FINGER_REGION_HEIGHT).coerceIn(0, imageHeight)
+
+        return Rect(left, top, right, bottom)
+    }
+
+    // Display the recognized text
+    private fun displayRecognizedText(text: Text) {
+        activity?.runOnUiThread {
+            if (text.text.isNotEmpty()) {
+                // Update UI with recognized text
+                Log.d(TAG, "Recognized text: ${text.text}")
+
+                // Update the TextView
+                recognizedTextView.text = text.text
+                recognizedTextView.visibility = View.VISIBLE
+
+                // Also update the overlay to display text in the OCR region
+                overlay.setDetectedText(text.text)
+            }
+        }
+    }
+
+    // Update the onResults method to extract middle finger position and handle gestures
     override fun onResults(resultBundle: GestureRecognizerHelper.ResultBundle) {
         activity?.runOnUiThread {
-            if (::overlay.isInitialized) {
-                // Show result of recognized gesture
-                val gestureCategories = resultBundle.results.first().gestures()
-                gestureRecognizerResultAdapter.updateResults(
-                    if (gestureCategories.isNotEmpty()) gestureCategories.first()
-                    else emptyList()
+            if (!isAdded) return@runOnUiThread
+
+            // Show result of recognized gesture
+            val gestureCategories = resultBundle.results.first().gestures()
+            gestureRecognizerResultAdapter.updateResults(
+                if (gestureCategories.isNotEmpty()) gestureCategories.first()
+                else emptyList()
+            )
+
+            // Extract middle finger position (Landmark 12)
+            val landmarks = resultBundle.results.first().landmarks()
+            if (landmarks.isNotEmpty() && landmarks[0].size > 12) {
+                // Get middle finger landmark (index 12)
+                val middleFinger = landmarks[0][12]
+
+                // Convert normalized coordinates to view coordinates
+                middleFingerPosition = Pair(
+                    middleFinger.x() * viewFinder.width,
+                    middleFinger.y() * viewFinder.height
                 )
 
-                // Check for specific gestures with throttling to prevent multiple triggers
-                val currentTime = System.currentTimeMillis()
-                if (gestureCategories.isNotEmpty() &&
-                    gestureCategories.first().isNotEmpty() &&
-                    currentTime - lastGestureDetectionTime > GESTURE_COOLDOWN_MS) {
+                // Update overlay to show tracking point
+                overlay.setFingerPosition(middleFingerPosition)
+            } else {
+                middleFingerPosition = null
+                overlay.setFingerPosition(null)
+                overlay.ocrRegion=null
+            }
 
-                    val topGesture = gestureCategories.first().first().categoryName()
+            // Handle gesture detection with throttling
+            val currentTime = System.currentTimeMillis()
+            if (gestureCategories.isNotEmpty() &&
+                gestureCategories.first().isNotEmpty() &&
+                currentTime - lastGestureDetectionTime > GESTURE_COOLDOWN_MS) {
 
-                    when (topGesture) {
-                        "like" -> {
-                            lastGestureDetectionTime = currentTime
-                            startOcrProcess()
-                        }
-                        "stop_inverted" -> {
-                            lastGestureDetectionTime = currentTime
-                            stopOcrProcess()
-                        }
-                        // Add new gesture for toggling ROI
-                        "pointing_up" -> {
-                            lastGestureDetectionTime = currentTime
-                            toggleRoi()
-                        }
+                val topGesture = gestureCategories.first().first().categoryName()
+
+                when (topGesture) {
+                    "pointing_up", "two_up_inverted" -> {
+                        lastGestureDetectionTime = currentTime
+                        startOcrProcess()
+                    }
+                    "stop_inverted", "closed_fist" -> {
+                        lastGestureDetectionTime = currentTime
+                        stopOcrProcess()
                     }
                 }
-
-                // Pass necessary information to OverlayView for drawing on the canvas
-                overlay.setResults(
-                    resultBundle.results.first(),
-                    resultBundle.inputImageHeight,
-                    resultBundle.inputImageWidth,
-                )
-
-                // Force a redraw
-                overlay.invalidate()
             }
+
+            // Pass necessary information to OverlayView for visualization
+            overlay.setResults(
+                resultBundle.results.first(),
+                resultBundle.inputImageHeight,
+                resultBundle.inputImageWidth,
+            )
         }
     }
 

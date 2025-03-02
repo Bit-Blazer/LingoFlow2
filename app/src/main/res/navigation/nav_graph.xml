@@ -35,7 +35,7 @@
 
     <fragment
         android:id="@+id/camera_fragment"
-        android:name="com.parakurom.lingoflow.CameraFragment"
+        android:name="com.parakurom.lingoflow.PointtoReadFragment"
         android:label="CameraFragment">
 
         <action

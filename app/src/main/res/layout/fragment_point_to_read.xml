@@ -7,34 +7,61 @@
     <androidx.camera.view.PreviewView
         android:id="@+id/view_finder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.parakurom.lingoflow.OverlayView
         android:id="@+id/overlay"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        app:layout_constraintTop_toTopOf="@id/view_finder"
+        app:layout_constraintStart_toStartOf="@id/view_finder"
+        app:layout_constraintEnd_toEndOf="@id/view_finder"
+        app:layout_constraintBottom_toBottomOf="@id/view_finder" />
 
     <com.parakurom.lingoflow.RegionOfInterestView
         android:id="@+id/roi_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone" />
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="@id/view_finder"
+        app:layout_constraintStart_toStartOf="@id/view_finder"
+        app:layout_constraintEnd_toEndOf="@id/view_finder"
+        app:layout_constraintBottom_toBottomOf="@id/view_finder" />
+
+    <TextView
+        android:id="@+id/recognized_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#80000000"
+        android:padding="16dp"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <Button
         android:id="@+id/toggle_roi_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Enable ROI"
-        android:padding="8dp"
         android:layout_margin="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerview_results"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_height="80dp"
+        android:layout_marginTop="16dp"
+        android:background="#80000000"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
